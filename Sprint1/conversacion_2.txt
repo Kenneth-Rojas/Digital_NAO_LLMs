@@ -1,0 +1,7 @@
+Usuario: Crea 5 viñetas que presenten los elementos más importantes de la historia contenida en el archivo 'cuento.pdf' (usando el texto de todas las páginas del archivo).
+LLM: • El Zorro invita a la Cigüeña a comer y le sirve sopa en un plato llano, impidiéndole comer debido a su largo pico.
+• La Cigüeña se siente humillada al no poder comer, mientras el Zorro lame todo el plato a gusto.
+• Para desquitarse, la Cigüeña decide invitar al Zorro a comer a su casa.
+• La Cigüeña sirve un guisado en un recipiente de cuello largo y angosto, accesible solo para su pico.
+• El Zorro no puede introducir su hocico para comer y regresa a casa humillado y con el estómago vacío.
+
