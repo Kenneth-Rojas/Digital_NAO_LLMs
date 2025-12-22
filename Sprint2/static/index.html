@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CueBot LLM - Interfaz de Procesamiento</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #ec4899;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --light-bg: #f9fafb;
+            --card-bg: #ffffff;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --border-color: #e5e7eb;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-dark);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            width: 4px;
+            height: 28px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .results-section h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .results-section h2::before {
+            content: '';
+            width: 4px;
+            height: 28px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .result-item {
+            background: var(--light-bg);
+            border-left: 4px solid var(--primary-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result-item.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .result-item.success {
+            border-left-color: var(--success-color);
+        }
+
+        .result-item.error {
+            border-left-color: var(--danger-color);
+        }
+
+        .result-item.loading {
+            border-left-color: var(--warning-color);
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-content {
+            color: var(--text-light);
+            line-height: 1.6;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .status-badge.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .status-badge.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .status-badge.loading {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .instruction-preset {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .preset-btn {
+            padding: 8px 12px;
+            background: var(--light-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.05);
+            color: var(--primary-color);
+        }
+
+        .info-box {
+            background: rgba(99, 102, 241, 0.05);
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .instruction-preset {
+                grid-template-columns: 1fr;
+            }
+
+            .card, .results-section {
+                padding: 20px;
+            }
+        }
+
+        .clear-btn {
+            background: var(--border-color);
+            color: var(--text-dark);
+            margin-top: 10px;
+        }
+
+        .clear-btn:hover {
+            background: #d1d5db;
+        }
+
+        /* Scrollbar personalizado */
+        .result-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .result-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .result-content::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+
+        .result-content::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 CueBot LLM</h1>
+            <p>Interfaz de Procesamiento con IA</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Tarjeta 1: Procesar Texto -->
+            <div class="card">
+                <h2>📝 Procesar Texto</h2>
+                <div class="info-box">
+                    Escribe o pega el texto que deseas procesar con la IA.
+                </div>
+
+                <form id="textForm">
+                    <div class="form-group">
+                        <label for="textInput">Texto a procesar:</label>
+                        <textarea id="textInput" placeholder="Escribe tu texto aquí..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="instruction">Instrucción:</label>
+                        <textarea id="instruction" placeholder="Escribe la instrucción para el LLM..." required>Realiza un resumen de la siguiente información en español</textarea>
+                    </div>
+
+                    <button type="submit" class="btn">Procesar Texto</button>
+                </form>
+            </div>
+
+            <!-- Tarjeta 2: Procesar Archivo -->
+            <div class="card">
+                <h2>📄 Procesar Archivo</h2>
+                <div class="info-box">
+                    Carga un archivo (TXT, MD o PDF) para procesarlo con la IA.
+                </div>
+
+                <form id="fileForm">
+                    <div class="form-group">
+                        <label for="fileInput">Seleccionar archivo:</label>
+                        <input type="file" id="fileInput" accept=".txt,.md,.pdf" required>
+                        <small style="color: var(--text-light); margin-top: 5px; display: block;">
+                            Formatos soportados: TXT, MD, PDF (máx. 10MB)
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="instructionFile">Instrucción:</label>
+                        <textarea id="instructionFile" placeholder="Escribe la instrucción para el LLM..." required>Realiza un resumen a manera de 5 viñetas del contenido del archivo en idioma inglés.</textarea>
+                    </div>
+
+                    <button type="submit" class="btn">Procesar Archivo</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sección de Resultados -->
+        <div class="results-section">
+            <h2>📊 Resultados</h2>
+
+            <!-- Resultado Texto -->
+            <div id="resultText" class="result-item">
+                <div class="status-badge success">
+                    <span class="loading-spinner" style="display: none;" id="spinnerText"></span>
+                    <span id="statusTextLabel">✓ Procesado</span>
+                </div>
+                <div class="result-label">Instrucción utilizada:</div>
+                <div class="result-content" id="textInstruction"></div>
+                <div class="result-label" style="margin-top: 15px;">Respuesta:</div>
+                <div class="result-content" id="textResponse"></div>
+                <button type="button" class="btn clear-btn" onclick="clearResult('text')">Limpiar resultado</button>
+            </div>
+
+            <!-- Resultado Archivo -->
+            <div id="resultFile" class="result-item">
+                <div class="status-badge success">
+                    <span class="loading-spinner" style="display: none;" id="spinnerFile"></span>
+                    <span id="statusFileLabel">✓ Procesado</span>
+                </div>
+                <div class="result-label">Archivo procesado:</div>
+                <div class="result-content" id="fileInfo" style="max-height: 60px;"></div>
+                <div class="result-label" style="margin-top: 15px;">Instrucción utilizada:</div>
+                <div class="result-content" id="fileInstruction"></div>
+                <div class="result-label" style="margin-top: 15px;">Respuesta:</div>
+                <div class="result-content" id="fileResponse"></div>
+                <button type="button" class="btn clear-btn" onclick="clearResult('file')">Limpiar resultado</button>
+            </div>
+
+            <div id="noResults" style="text-align: center; color: var(--text-light); padding: 40px 20px;">
+                <p style="font-size: 1.1rem;">Aquí aparecerán los resultados del procesamiento...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Usar la URL relativa del servidor
+        const API_BASE_URL = window.location.origin;
+
+        // Funciones para establecer instrucciones predeterminadas - REMOVIDAS
+
+        // Función para mostrar un resultado
+        function showResult(type, isLoading = false) {
+            const noResults = document.getElementById('noResults');
+            const resultElement = document.getElementById(`result${type === 'text' ? 'Text' : 'File'}`);
+            
+            if (noResults) {
+                noResults.style.display = 'none';
+            }
+            
+            resultElement.classList.add('active');
+            
+            if (isLoading) {
+                const spinnerElement = document.getElementById(`spinner${type === 'text' ? 'Text' : 'File'}`);
+                const statusLabel = document.getElementById(`status${type === 'text' ? 'Text' : 'File'}Label`);
+                spinnerElement.style.display = 'inline-block';
+                statusLabel.textContent = 'Procesando...';
+                resultElement.classList.add('loading');
+                resultElement.classList.remove('success', 'error');
+            }
+        }
+
+        // Función para limpiar un resultado
+        function clearResult(type) {
+            const resultElement = document.getElementById(`result${type === 'text' ? 'Text' : 'File'}`);
+            resultElement.classList.remove('active');
+            
+            const noResults = document.getElementById('noResults');
+            const resultText = document.getElementById('resultText');
+            const resultFile = document.getElementById('resultFile');
+            
+            if (!resultText.classList.contains('active') && !resultFile.classList.contains('active')) {
+                noResults.style.display = 'block';
+            }
+        }
+
+        // Manejador del formulario de texto
+        document.getElementById('textForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const text = document.getElementById('textInput').value;
+            const instruction = document.getElementById('instruction').value;
+
+            showResult('text', true);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/procesar-texto`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        instruction: instruction
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Actualizar resultados
+                document.getElementById('textInstruction').textContent = data.instruccion;
+                document.getElementById('textResponse').textContent = data.respuesta;
+
+                // Actualizar estado
+                const resultText = document.getElementById('resultText');
+                resultText.classList.remove('loading');
+                resultText.classList.add('success');
+                document.getElementById('spinnerText').style.display = 'none';
+                document.getElementById('statusTextLabel').textContent = '✓ Procesado correctamente';
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('textResponse').textContent = `Error: ${error.message}`;
+                
+                const resultText = document.getElementById('resultText');
+                resultText.classList.remove('loading');
+                resultText.classList.add('error');
+                document.getElementById('spinnerText').style.display = 'none';
+                document.getElementById('statusTextLabel').textContent = '✗ Error en el procesamiento';
+            }
+        });
+
+        // Manejador del formulario de archivo
+        document.getElementById('fileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const instruction = document.getElementById('instructionFile').value;
+
+            if (!fileInput.files.length) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+
+            showResult('file', true);
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('instruction', instruction);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/procesar-archivo-upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Actualizar resultados
+                document.getElementById('fileInfo').textContent = `${data.archivo} (${(data.tamaño_bytes / 1024).toFixed(2)} KB)`;
+                document.getElementById('fileInstruction').textContent = data.instruccion;
+                document.getElementById('fileResponse').textContent = data.respuesta;
+
+                // Actualizar estado
+                const resultFile = document.getElementById('resultFile');
+                resultFile.classList.remove('loading');
+                resultFile.classList.add('success');
+                document.getElementById('spinnerFile').style.display = 'none';
+                document.getElementById('statusFileLabel').textContent = '✓ Procesado correctamente';
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('fileResponse').textContent = `Error: ${error.message}`;
+                
+                const resultFile = document.getElementById('resultFile');
+                resultFile.classList.remove('loading');
+                resultFile.classList.add('error');
+                document.getElementById('spinnerFile').style.display = 'none';
+                document.getElementById('statusFileLabel').textContent = '✗ Error en el procesamiento';
+            }
+        });
+    </script>
+</body>
+</html>
