@@ -52,7 +52,7 @@ if static_dir.exists():
 class TextRequest(BaseModel):
     """Modelo para peticiones con texto directo."""
     text: str
-    instruction: str = "Realiza un resumen a manera de 5 viñetas del contenido de la siguiente información en idioma inglés."
+    instruction: str = "Realiza un resumen a manera de 5 viñetas del contenido de la siguiente información."
     model: str = "gemini-2.5-flash"
 
 
@@ -97,7 +97,7 @@ def build_messages(content: str, instruction: str, language: str = "es"):
     system = {
         "role": "system",
         "content": (
-            f"Eres un asistente experto que procesa información y textos en {language}. "
+            f"Eres un asistente experto que procesa información y textos. "
             "Responde con precisión y claridad, manteniendo un tono profesional."
         ),
     }
@@ -112,7 +112,7 @@ def build_messages(content: str, instruction: str, language: str = "es"):
         ---------------------
         {content}
 
-        Responde de manera clara y concisa.
+        Responde de manera clara y concisa en el idioma y formato solicitado.
         """
         ),
     }
