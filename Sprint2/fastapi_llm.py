@@ -1,14 +1,20 @@
+# Sprint2/fastapi_llm.py
 import os
-import sys
 import textwrap
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+import uvicorn
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import uvicorn
 
 try:
     from google import genai
@@ -25,15 +31,18 @@ try:
 except Exception:
     PyPDF2 = None
 
-from fastapi.middleware.cors import CORSMiddleware
 
+# -----------------------------------------------------------------------------
 # Inicializar FastAPI
+# -----------------------------------------------------------------------------
 app = FastAPI(
     title="LLM API",
-    description="API REST para interactuar con Gemini"
-    )
+    description="API REST para interactuar con Gemini",
+)
 
+# -----------------------------------------------------------------------------
 # Configurar CORS
+# -----------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,40 +51,98 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# -----------------------------------------------------------------------------
 # Configurar archivos estáticos
+# -----------------------------------------------------------------------------
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
+# -----------------------------------------------------------------------------
 # Modelos de datos
+# -----------------------------------------------------------------------------
 class TextRequest(BaseModel):
     """Modelo para peticiones con texto directo."""
+
     text: str
-    instruction: str = "Realiza un resumen a manera de 5 viñetas del contenido de la siguiente información."
+    instruction: str = (
+        "Realiza un resumen a manera de 5 viñetas del contenido "
+        "de la siguiente información."
+    )
     model: str = "gemini-2.5-flash"
 
 
 class FileRequest(BaseModel):
     """Modelo para respuestas de archivo."""
+
     filename: str
     instruction: str
     model: str = "gemini-2.5-flash"
 
 
+# -----------------------------------------------------------------------------
 # Funciones auxiliares
+# -----------------------------------------------------------------------------
+def get_next_conversation_number():
+    """Obtiene el siguiente número de conversación disponible."""
+    current_dir = Path(__file__).parent
+    counter = 1
+
+    while (current_dir / f"conversacion_{counter}.txt").exists():
+        counter += 1
+
+    return counter
+
+
+def save_conversation(
+    instruction: str,
+    content: str,
+    response: str,
+    filename: str | None = None,
+):
+    """
+    Guarda la conversación entre el usuario y el LLM en un archivo txt.
+    """
+    if filename is None:
+        conv_number = get_next_conversation_number()
+        filename = f"conversacion_{conv_number}.txt"
+
+    current_dir = Path(__file__).parent
+    filepath = current_dir / filename
+
+    conversation = (
+        f"Usuario: {instruction}. "
+        f"El texto que deberás analizar es el siguiente: {content}\n"
+        f"LLM: {response}\n"
+    )
+
+    with open(filepath, "w", encoding="utf-8") as file:
+        file.write(conversation)
+
+    print("\n" + "=" * 60)
+    print("CONVERSACIÓN GUARDADA")
+    print("=" * 60)
+    print(f"Archivo: {filename}")
+    print("-" * 60)
+    print(conversation)
+    print("=" * 60 + "\n")
+
+    return filepath
+
+
 def initialize_genai():
     """Inicializa el cliente de Gemini con la API key."""
     if genai is None:
         raise RuntimeError(
-            "La librería 'google.genai' no está instalada. Instálala con: "
-            "pip install google-genai"
+            "La librería 'google.genai' no está instalada. "
+            "Instálala con: pip install google-genai"
         )
 
     if load_dotenv is None:
         raise RuntimeError(
-            "La librería 'python-dotenv' no está instalada. Instálala con: "
-            "pip install python-dotenv"
+            "La librería 'python-dotenv' no está instalada. "
+            "Instálala con: pip install python-dotenv"
         )
 
     load_dotenv()
@@ -97,7 +164,7 @@ def build_messages(content: str, instruction: str, language: str = "es"):
     system = {
         "role": "system",
         "content": (
-            f"Eres un asistente experto que procesa información y textos. "
+            "Eres un asistente experto que procesa información y textos. "
             "Responde con precisión y claridad, manteniendo un tono profesional."
         ),
     }
@@ -106,14 +173,14 @@ def build_messages(content: str, instruction: str, language: str = "es"):
         "role": "user",
         "content": textwrap.dedent(
             f"""
-        {instruction}
+            {instruction}
 
-        Contenido a procesar:
-        ---------------------
-        {content}
+            Contenido a procesar:
+            ---------------------
+            {content}
 
-        Responde de manera clara y concisa en el idioma y formato solicitado.
-        """
+            Responde de manera clara y concisa en el idioma y formato solicitado.
+            """
         ),
     }
 
@@ -124,9 +191,9 @@ def call_gemini_generate(messages, model: str = "gemini-2.5-flash"):
     """Ejecuta la llamada a la API de Gemini."""
     client = initialize_genai()
 
-    system_content = messages[0]["content"] if messages and isinstance(messages, list) else ""
+    system_content = messages[0]["content"] if messages else ""
     user_content = messages[1]["content"] if len(messages) > 1 else ""
-    prompt_text = system_content + "\n\n" + user_content
+    prompt_text = f"{system_content}\n\n{user_content}"
 
     response = client.models.generate_content(
         model=model,
@@ -147,37 +214,39 @@ def extract_text_from_file(file_path: str) -> str:
     if not file_path.exists():
         raise FileNotFoundError(f"El archivo {file_path} no existe")
 
-    # Archivos de texto plano
-    if file_path.suffix in [".txt", ".md"]:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read().strip()
+    if file_path.suffix in {".txt", ".md"}:
+        with open(file_path, "r", encoding="utf-8") as file:
+            return file.read().strip()
 
-    # Archivos PDF
-    elif file_path.suffix == ".pdf":
+    if file_path.suffix == ".pdf":
         if PyPDF2 is None:
             raise RuntimeError(
-                "La librería 'PyPDF2' no está instalada. Instálala con: "
-                "pip install PyPDF2"
+                "La librería 'PyPDF2' no está instalada. "
+                "Instálala con: pip install PyPDF2"
             )
+
         text = ""
-        with open(file_path, "rb") as f:
-            pdf_reader = PyPDF2.PdfReader(f)
+        with open(file_path, "rb") as file:
+            pdf_reader = PyPDF2.PdfReader(file)
             for page in pdf_reader.pages:
                 text += page.extract_text()
+
         return text.strip()
 
-    else:
-        raise ValueError(f"Formato de archivo no soportado: {file_path.suffix}")
+    raise ValueError(f"Formato de archivo no soportado: {file_path.suffix}")
 
 
+# -----------------------------------------------------------------------------
 # Rutas (Endpoints)
+# -----------------------------------------------------------------------------
 @app.get("/", tags=["Info"])
 async def root():
     """Endpoint raíz - sirve la interfaz HTML."""
     index_path = Path(__file__).parent / "static" / "index.html"
+
     if index_path.exists():
         return FileResponse(index_path)
-    
+
     return {
         "mensaje": "Bienvenido a CueBot LLM",
         "endpoints": {
@@ -189,16 +258,15 @@ async def root():
 
 @app.post("/procesar-texto", tags=["Procesamiento"])
 async def procesar_texto(request: TextRequest):
-    """
-    Procesa texto directo y retorna la respuesta del LLM.
-
-    """
+    """Procesa texto directo y retorna la respuesta del LLM."""
     try:
         if not request.text:
             raise ValueError("El texto no puede estar vacío")
 
         messages = build_messages(request.text, request.instruction)
         response = call_gemini_generate(messages, model=request.model)
+
+        save_conversation(request.instruction, request.text, response)
 
         return JSONResponse(
             status_code=200,
@@ -210,8 +278,9 @@ async def procesar_texto(request: TextRequest):
             },
         )
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error: {str(e)}")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Error: {exc}")
+
 
 @app.post("/procesar-archivo-upload", tags=["Procesamiento"])
 async def procesar_archivo_upload(
@@ -219,16 +288,12 @@ async def procesar_archivo_upload(
     instruction: str = Form(...),
     model: str = Form("gemini-2.5-flash"),
 ):
-    """
-    Procesa un archivo cargado directamente.
-
-    """
+    """Procesa un archivo cargado directamente."""
     try:
-        # Validar tipo de archivo
         if file.filename is None:
             raise ValueError("El nombre del archivo no es válido")
 
-        allowed_extensions = [".txt", ".md", ".pdf"]
+        allowed_extensions = {".txt", ".md", ".pdf"}
         file_ext = Path(file.filename).suffix.lower()
 
         if file_ext not in allowed_extensions:
@@ -237,16 +302,15 @@ async def procesar_archivo_upload(
                 f"Permitidos: {', '.join(allowed_extensions)}"
             )
 
-        # Leer contenido del archivo
         content = await file.read()
 
-        # Decodificar según el tipo
         if file_ext == ".pdf":
             if PyPDF2 is None:
                 raise RuntimeError(
-                    "La librería 'PyPDF2' no está instalada. Instálala con: "
-                    "pip install PyPDF2"
+                    "La librería 'PyPDF2' no está instalada. "
+                    "Instálala con: pip install PyPDF2"
                 )
+
             import io
 
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
@@ -259,9 +323,10 @@ async def procesar_archivo_upload(
         if not texto:
             raise ValueError("El archivo está vacío")
 
-        # Procesar con el LLM
         messages = build_messages(texto, instruction)
         response = call_gemini_generate(messages, model=model)
+
+        save_conversation(instruction, texto, response)
 
         return JSONResponse(
             status_code=200,
@@ -275,17 +340,20 @@ async def procesar_archivo_upload(
             },
         )
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error: {exc}")
 
+
+# -----------------------------------------------------------------------------
 # Punto de entrada
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("Iniciando API REST LLM con FastAPI")
     print("=" * 50)
-    
+
     uvicorn.run(
         app,
         host="0.0.0.0",
