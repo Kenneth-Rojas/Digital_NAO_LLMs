@@ -24,7 +24,8 @@ def add_text(history, text):
     interfaz
     """
 
-    history = history + [(text, None)]
+    history = history or []
+    history.append({"role": "user", "content": text})
 
     return history, gr.update(value="", interactive=False)
 
@@ -34,8 +35,9 @@ def add_file(history, file):
     Permite agrega un texto pdf a la conversacion del chat
     y guardar 
     """
-    # agrega el nombre del archivo al Chat
-    history = history + [((file.name,), None)]
+    # agrega el nombre del archivo al Chat (formato esperado por Gradio)
+    history = history or []
+    history.append({"role": "user", "content": f"Archivo subido: {file.name}"})
 
     # Leemos el texto del archivo PDF y lo guardamos en
     # CORPUS_TEXT para el futuro
@@ -63,17 +65,28 @@ def bot(history):
     """
     Obtiene la respuesta del Bot desde la API
     """
-    # Extrae el ultimo input de texto de la historia de la 
-    # conversacion del bot
-    input_text = history[-1][0]
-    
-    # Define entrada de texto vacio
-    history[-1][1] = ""
+    history = history or []
+
+    # Encuentra el último mensaje de usuario
+    # Suponemos que el último elemento es el mensaje del usuario que disparó la llamada
+    user_msg = None
+    if history:
+        last = history[-1]
+        if isinstance(last, dict) and last.get("role") == "user":
+            user_msg = last.get("content")
+
+    if user_msg is None:
+        # Nothing to do
+        return history
+
+    # Añade un mensaje del asistente vacío para mostrar la respuesta
+    history.append({"role": "assistant", "content": ""})
+    assistant_index = len(history) - 1
 
     try:
         # Prepara la solicitud para el API
         payload = {
-            "instruction": input_text,
+            "instruction": user_msg,
             "fragments": CORPUS_TEXT if CORPUS_TEXT else None,
             "model": "gemini-2.5-flash"
         }
@@ -96,7 +109,7 @@ def bot(history):
     # Genera el efecto de escribir lento con una pausa
     # Como si el texto se generara lentamente
     for character in response_text:
-        history[-1][1] += character
+        history[assistant_index]["content"] += character
         time.sleep(0.02)
         yield history
 
@@ -121,7 +134,7 @@ with gr.Blocks() as demo:
 
         # Cuadro de subida de archivo
         with gr.Column(scale=0.15, min_width=0):
-            btn = gr.UploadButton("📁 Subir Archivo:", file_types=["pdf"])
+            btn = gr.UploadButton("📁 Subir Archivo:", file_types=[".pdf"])
 
     # Controlador de acciones para retroalimentar al bot
     # Con su respuesta
